@@ -15,9 +15,17 @@
                 <h2>ConnectHub</h2>
             </div>
             <div class="nav-menu">
-                <a href="#" class="nav-link">首页</a>
+                <a href="#" class="nav-link" id="homeLink">首页</a>
                 <a href="#" class="nav-link">话题</a>
                 <a href="#" class="nav-link">用户</a>
+            </div>
+            <div class="nav-search">
+                <div class="search-container">
+                    <input type="text" placeholder="搜索帖子..." id="searchInput" class="search-input">
+                    <button class="search-btn" id="searchBtn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
             </div>
             <div class="nav-auth">
                 <button class="btn btn-outline" id="loginBtn">登录</button>
@@ -96,6 +104,54 @@
                         <!-- 动态加载评论 -->
                     </div>
                 </section>
+            </div>
+        </div>
+
+        <!-- 搜索结果页 -->
+        <div id="searchResultPage" class="hidden">
+            <div class="container">
+                <!-- 返回按钮和搜索信息 -->
+                <div class="search-nav">
+                    <button class="btn btn-outline" id="backFromSearch">
+                        <i class="fas fa-arrow-left"></i> 返回首页
+                    </button>
+                    <div class="search-info">
+                        <h2 id="searchResultTitle">搜索结果</h2>
+                        <p id="searchResultCount">找到 0 个结果</p>
+                    </div>
+                </div>
+
+                <!-- 高级搜索过滤器 -->
+                <div class="search-filters">
+                    <div class="filter-group">
+                        <label>分类筛选:</label>
+                        <select id="categoryFilter">
+                            <option value="">所有分类</option>
+                            <option value="技术">技术讨论</option>
+                            <option value="生活">生活分享</option>
+                            <option value="问答">问答互助</option>
+                            <option value="闲聊">闲聊灌水</option>
+                            <option value="公告">公告</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>排序方式:</label>
+                        <select id="searchSortFilter">
+                            <option value="relevance">相关性</option>
+                            <option value="latest">最新发布</option>
+                            <option value="popular">最受欢迎</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>作者筛选:</label>
+                        <input type="text" placeholder="输入作者名" id="authorFilter">
+                    </div>
+                </div>
+
+                <!-- 搜索结果列表 -->
+                <div class="search-results" id="searchResults">
+                    <!-- 动态加载搜索结果 -->
+                </div>
             </div>
         </div>
     </main>

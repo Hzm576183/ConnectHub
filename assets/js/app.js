@@ -5,6 +5,8 @@ class ConnectHub {
         this.posts = [];
         this.comments = {};
         this.currentPostId = null;
+        this.searchResults = [];
+        this.currentSearchQuery = '';
         this.init();
     }
 
@@ -76,6 +78,22 @@ class ConnectHub {
         document.getElementById('addCommentBtn').addEventListener('click', () => this.showCommentForm());
         document.getElementById('cancelComment').addEventListener('click', () => this.hideCommentForm());
         document.getElementById('submitComment').addEventListener('click', () => this.handleAddComment());
+        
+        // 搜索相关事件
+        document.getElementById('searchBtn').addEventListener('click', () => this.handleSearch());
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.handleSearch();
+        });
+        document.getElementById('homeLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showHomePage();
+        });
+        document.getElementById('backFromSearch').addEventListener('click', () => this.showHomePage());
+        
+        // 搜索过滤器事件
+        document.getElementById('categoryFilter').addEventListener('change', () => this.applySearchFilters());
+        document.getElementById('searchSortFilter').addEventListener('change', () => this.applySearchFilters());
+        document.getElementById('authorFilter').addEventListener('input', () => this.applySearchFilters());
     }
 
     // 显示认证模态框
@@ -276,8 +294,12 @@ class ConnectHub {
     // 显示首页
     showHomePage() {
         document.getElementById('postDetailPage').classList.add('hidden');
+        document.getElementById('searchResultPage').classList.add('hidden');
         document.getElementById('homePage').classList.remove('hidden');
         this.currentPostId = null;
+        
+        // 清空搜索框
+        document.getElementById('searchInput').value = '';
     }
 
     // 切换点赞
@@ -381,6 +403,166 @@ class ConnectHub {
     // 获取评论数量
     getCommentsCount(postId) {
         return this.comments[postId] ? this.comments[postId].length : 0;
+    }
+
+    // 处理搜索
+    handleSearch() {
+        const searchQuery = document.getElementById('searchInput').value.trim();
+        if (!searchQuery) {
+            alert('请输入搜索关键词');
+            return;
+        }
+        
+        this.currentSearchQuery = searchQuery;
+        this.performSearch(searchQuery);
+        this.showSearchResults();
+    }
+
+    // 执行搜索
+    performSearch(query) {
+        const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+        
+        this.searchResults = this.posts.filter(post => {
+            const searchContent = `${post.title} ${post.content} ${post.author}`.toLowerCase();
+            return searchTerms.some(term => searchContent.includes(term));
+        }).map(post => {
+            // 计算相关性分数
+            const titleMatches = this.countMatches(post.title.toLowerCase(), searchTerms);
+            const contentMatches = this.countMatches(post.content.toLowerCase(), searchTerms);
+            const authorMatches = this.countMatches(post.author.toLowerCase(), searchTerms);
+            
+            const relevanceScore = titleMatches * 3 + contentMatches * 2 + authorMatches * 1;
+            
+            return {
+                ...post,
+                relevanceScore,
+                highlightedTitle: this.highlightText(post.title, searchTerms),
+                highlightedContent: this.highlightText(post.content.substring(0, 200), searchTerms)
+            };
+        });
+        
+        // 默认按相关性排序
+        this.sortSearchResults('relevance');
+    }
+
+    // 计算匹配次数
+    countMatches(text, terms) {
+        return terms.reduce((count, term) => {
+            const matches = text.match(new RegExp(term, 'gi'));
+            return count + (matches ? matches.length : 0);
+        }, 0);
+    }
+
+    // 高亮文本
+    highlightText(text, terms) {
+        let highlightedText = text;
+        terms.forEach(term => {
+            const regex = new RegExp(`(${term})`, 'gi');
+            highlightedText = highlightedText.replace(regex, '<span class="search-highlight">$1</span>');
+        });
+        return highlightedText;
+    }
+
+    // 显示搜索结果页面
+    showSearchResults() {
+        document.getElementById('homePage').classList.add('hidden');
+        document.getElementById('postDetailPage').classList.add('hidden');
+        document.getElementById('searchResultPage').classList.remove('hidden');
+        
+        // 更新搜索结果标题和数量
+        document.getElementById('searchResultTitle').textContent = `"${this.currentSearchQuery}" 的搜索结果`;
+        document.getElementById('searchResultCount').textContent = `找到 ${this.searchResults.length} 个结果`;
+        
+        // 渲染搜索结果
+        this.renderSearchResults();
+        
+        // 滚动到顶部
+        window.scrollTo(0, 0);
+    }
+
+    // 渲染搜索结果
+    renderSearchResults() {
+        const searchResults = document.getElementById('searchResults');
+        
+        if (this.searchResults.length === 0) {
+            searchResults.innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <h3>未找到相关结果</h3>
+                    <p>尝试使用不同的关键词或检查拼写</p>
+                </div>
+            `;
+            return;
+        }
+        
+        searchResults.innerHTML = this.searchResults.map(post => `
+            <div class="search-result-item">
+                <a href="#" class="search-result-title" onclick="connectHub.showPostDetail(${post.id}); return false;">
+                    ${post.highlightedTitle}
+                </a>
+                <div class="search-result-meta">
+                    <span class="search-result-category">${post.category}</span>
+                    <span>作者: ${post.author}</span>
+                    <span>${this.formatTime(post.time)}</span>
+                </div>
+                <div class="search-result-content">
+                    ${post.highlightedContent}${post.content.length > 200 ? '...' : ''}
+                </div>
+                <div class="search-result-stats">
+                    <span><i class="fas fa-thumbs-up"></i> ${post.likes} 点赞</span>
+                    <span><i class="fas fa-comment"></i> ${this.getCommentsCount(post.id)} 评论</span>
+                    <span><i class="fas fa-eye"></i> 相关性: ${post.relevanceScore}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 应用搜索过滤器
+    applySearchFilters() {
+        if (this.searchResults.length === 0) return;
+        
+        const categoryFilter = document.getElementById('categoryFilter').value;
+        const sortFilter = document.getElementById('searchSortFilter').value;
+        const authorFilter = document.getElementById('authorFilter').value.trim().toLowerCase();
+        
+        // 应用过滤器
+        let filteredResults = [...this.searchResults];
+        
+        if (categoryFilter) {
+            filteredResults = filteredResults.filter(post => post.category === categoryFilter);
+        }
+        
+        if (authorFilter) {
+            filteredResults = filteredResults.filter(post => 
+                post.author.toLowerCase().includes(authorFilter)
+            );
+        }
+        
+        // 应用排序
+        this.sortSearchResults(sortFilter, filteredResults);
+        
+        // 更新显示
+        this.searchResults = filteredResults;
+        this.renderSearchResults();
+        document.getElementById('searchResultCount').textContent = `找到 ${filteredResults.length} 个结果`;
+    }
+
+    // 排序搜索结果
+    sortSearchResults(sortType, results = null) {
+        const resultsToSort = results || this.searchResults;
+        
+        switch (sortType) {
+            case 'latest':
+                resultsToSort.sort((a, b) => new Date(b.time) - new Date(a.time));
+                break;
+            case 'popular':
+                resultsToSort.sort((a, b) => b.likes - a.likes);
+                break;
+            case 'relevance':
+            default:
+                resultsToSort.sort((a, b) => b.relevanceScore - a.relevanceScore);
+                break;
+        }
     }
 
     // 格式化时间
