@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectHub - 社区论坛</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>ConnectHub</h2>
+            </div>
+            <div class="nav-menu">
+                <a href="#" class="nav-link">首页</a>
+                <a href="#" class="nav-link">话题</a>
+                <a href="#" class="nav-link">用户</a>
+            </div>
+            <div class="nav-auth">
+                <button class="btn btn-outline" id="loginBtn">登录</button>
+                <button class="btn btn-primary" id="registerBtn">注册</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 欢迎区域 -->
+        <section class="hero-section">
+            <div class="container">
+                <h1>欢迎来到 ConnectHub</h1>
+                <p>连接思想，分享智慧，建立社区</p>
+                <button class="btn btn-large btn-primary" id="startDiscussionBtn">
+                    <i class="fas fa-plus"></i> 开始讨论
+                </button>
+            </div>
+        </section>
+
+        <!-- 帖子列表 -->
+        <section class="posts-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>最新讨论</h2>
+                    <div class="sort-options">
+                        <button class="sort-btn active" data-sort="latest">最新</button>
+                        <button class="sort-btn" data-sort="popular">热门</button>
+                    </div>
+                </div>
+                <div class="posts-list" id="postsList">
+                    <!-- 帖子将通过JavaScript动态加载 -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 模态框 -->
+    <div class="modal" id="authModal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="auth-container">
+                <!-- 登录表单 -->
+                <div class="auth-form" id="loginForm">
+                    <h3>登录</h3>
+                    <form>
+                        <input type="text" placeholder="用户名" required>
+                        <input type="password" placeholder="密码" required>
+                        <button type="submit" class="btn btn-primary btn-full">登录</button>
+                    </form>
+                    <p>还没有账号？<a href="#" id="switchToRegister">立即注册</a></p>
+                </div>
+                
+                <!-- 注册表单 -->
+                <div class="auth-form hidden" id="registerForm">
+                    <h3>注册</h3>
+                    <form>
+                        <input type="text" placeholder="用户名" required>
+                        <input type="email" placeholder="邮箱" required>
+                        <input type="password" placeholder="密码" required>
+                        <input type="password" placeholder="确认密码" required>
+                        <button type="submit" class="btn btn-primary btn-full">注册</button>
+                    </form>
+                    <p>已有账号？<a href="#" id="switchToLogin">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 发帖模态框 -->
+    <div class="modal" id="postModal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="post-form-container">
+                <h3>发布新帖</h3>
+                <form id="newPostForm">
+                    <input type="text" placeholder="标题" id="postTitle" required>
+                    <select id="postCategory">
+                        <option value="">选择分类</option>
+                        <option value="技术">技术讨论</option>
+                        <option value="生活">生活分享</option>
+                        <option value="问答">问答互助</option>
+                        <option value="闲聊">闲聊灌水</option>
+                    </select>
+                    <textarea placeholder="内容" id="postContent" rows="8" required></textarea>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancelPost">取消</button>
+                        <button type="submit" class="btn btn-primary">发布</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
