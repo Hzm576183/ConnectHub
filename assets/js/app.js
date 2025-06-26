@@ -7,14 +7,31 @@ class ConnectHub {
         this.currentPostId = null;
         this.searchResults = [];
         this.currentSearchQuery = '';
+        this.api = window.connectHubAPI;
         this.init();
     }
 
-    init() {
-        this.loadFromStorage();
+    async init() {
+        await this.loadUserFromToken();
         this.bindEvents();
-        this.renderPosts();
+        await this.loadPosts();
+        this.updateUI();
         console.log('ConnectHub 已初始化');
+    }
+
+    // 从token加载用户信息
+    async loadUserFromToken() {
+        const token = localStorage.getItem('connecthub_token');
+        if (token) {
+            try {
+                const response = await this.api.getProfile();
+                this.currentUser = response.data.user;
+                console.log('用户自动登录成功:', this.currentUser.username);
+            } catch (error) {
+                console.log('Token已过期，需要重新登录');
+                this.api.setToken(null); // 清除无效的token
+            }
+        }
     }
 
     // 绑定事件
@@ -134,69 +151,119 @@ class ConnectHub {
     }
 
     // 处理登录
-    handleLogin(e) {
-        const formData = new FormData(e.target);
-        const username = formData.get('username') || e.target.querySelector('input[type="text"]').value;
-        const password = formData.get('password') || e.target.querySelector('input[type="password"]').value;
-        
-        if (username && password) {
-            this.currentUser = { username, loginTime: new Date() };
-            this.saveToStorage();
+    async handleLogin(e) {
+        try {
+            const inputs = e.target.querySelectorAll('input');
+            const username = inputs[0].value.trim();
+            const password = inputs[1].value;
+            
+            if (!username || !password) {
+                alert('请填写完整的登录信息');
+                return;
+            }
+
+            const response = await this.api.login({ username, password });
+            this.currentUser = response.data.user;
             this.updateUI();
             this.closeModals();
-            alert(`欢迎回来，${username}！`);
+            
+            // 清空表单
+            e.target.reset();
+            
+            alert(`欢迎回来，${this.currentUser.username}！`);
+            console.log('登录成功:', this.currentUser);
+            
+        } catch (error) {
+            console.error('登录失败:', error);
+            alert(error.message || '登录失败，请检查用户名和密码');
         }
     }
 
     // 处理注册
-    handleRegister(e) {
-        const inputs = e.target.querySelectorAll('input');
-        const username = inputs[0].value;
-        const email = inputs[1].value;
-        const password = inputs[2].value;
-        const confirmPassword = inputs[3].value;
-        
-        if (password !== confirmPassword) {
-            alert('密码不匹配');
-            return;
-        }
-        
-        if (username && email && password) {
-            this.currentUser = { username, email, registerTime: new Date() };
-            this.saveToStorage();
+    async handleRegister(e) {
+        try {
+            const inputs = e.target.querySelectorAll('input');
+            const username = inputs[0].value.trim();
+            const email = inputs[1].value.trim();
+            const password = inputs[2].value;
+            const confirmPassword = inputs[3].value;
+            
+            if (!username || !email || !password || !confirmPassword) {
+                alert('请填写完整的注册信息');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                alert('密码不匹配');
+                return;
+            }
+            
+            if (password.length < 6) {
+                alert('密码至少需要6个字符');
+                return;
+            }
+            
+            const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)/;
+            if (!passwordRegex.test(password)) {
+                alert('密码必须同时包含字母和数字');
+                return;
+            }
+
+            const response = await this.api.register({ username, email, password });
+            this.currentUser = response.data.user;
             this.updateUI();
             this.closeModals();
-            alert(`注册成功，欢迎 ${username}！`);
+            
+            // 清空表单
+            e.target.reset();
+            
+            alert(`注册成功，欢迎 ${this.currentUser.username}！`);
+            console.log('注册成功:', this.currentUser);
+            
+        } catch (error) {
+            console.error('注册失败:', error);
+            alert(error.message || '注册失败，请稍后重试');
         }
     }
 
     // 处理新帖发布
-    handleNewPost(e) {
-        const title = document.getElementById('postTitle').value;
-        const category = document.getElementById('postCategory').value;
-        const content = document.getElementById('postContent').value;
-        
-        if (title && content) {
-            const newPost = {
-                id: Date.now(),
-                title,
-                category: category || '未分类',
-                content,
-                author: this.currentUser.username,
-                time: new Date(),
-                replies: 0,
-                likes: 0
-            };
+    async handleNewPost(e) {
+        try {
+            const title = document.getElementById('postTitle').value.trim();
+            const category = document.getElementById('postCategory').value;
+            const content = document.getElementById('postContent').value.trim();
             
-            this.posts.unshift(newPost);
-            this.saveToStorage();
-            this.renderPosts();
+            if (!title || !category || !content) {
+                alert('请填写所有字段');
+                return;
+            }
+
+            if (title.length < 5 || title.length > 100) {
+                alert('标题长度必须在5-100个字符之间');
+                return;
+            }
+
+            if (content.length < 10 || content.length > 5000) {
+                alert('内容长度必须在10-5000个字符之间');
+                return;
+            }
+
+            const postData = { title, category, content };
+            const response = await this.api.createPost(postData);
+            
+            // 重新加载帖子列表
+            await this.loadPosts();
             this.closeModals();
             
             // 清空表单
             document.getElementById('newPostForm').reset();
             
             alert('发帖成功！');
+            console.log('发帖成功:', response.data.post);
+            
+        } catch (error) {
+            console.error('发帖失败:', error);
+            alert(error.message || '发帖失败，请稍后重试');
         }
     }
 
@@ -581,75 +648,70 @@ class ConnectHub {
     updateUI() {
         const loginBtn = document.getElementById('loginBtn');
         const registerBtn = document.getElementById('registerBtn');
+        const authContainer = document.querySelector('.nav-auth');
+
+        // 清除旧的事件监听器
+        const newAuthContainer = authContainer.cloneNode(true);
+        authContainer.parentNode.replaceChild(newAuthContainer, authContainer);
         
+        const newLoginBtn = document.getElementById('loginBtn');
+        const newRegisterBtn = document.getElementById('registerBtn');
+
         if (this.currentUser) {
-            loginBtn.textContent = this.currentUser.username;
-            loginBtn.onclick = () => this.logout();
-            registerBtn.style.display = 'none';
+            newLoginBtn.textContent = this.currentUser.username;
+            newRegisterBtn.style.display = 'none';
+            
+            newLoginBtn.addEventListener('click', () => this.logout());
         } else {
-            loginBtn.textContent = '登录';
-            loginBtn.onclick = () => this.showAuthModal('login');
-            registerBtn.style.display = 'inline-block';
+            newLoginBtn.textContent = '登录';
+            newRegisterBtn.textContent = '注册';
+            newRegisterBtn.style.display = 'inline-block';
+            
+            newLoginBtn.addEventListener('click', () => this.showAuthModal('login'));
+            newRegisterBtn.addEventListener('click', () => this.showAuthModal('register'));
         }
     }
 
     // 退出登录
-    logout() {
+    async logout() {
         if (confirm('确定要退出登录吗？')) {
-            this.currentUser = null;
-            this.saveToStorage();
-            this.updateUI();
-            alert('已退出登录');
+            try {
+                await this.api.logout();
+                this.currentUser = null;
+                this.api.setToken(null);
+                this.updateUI();
+                alert('已退出登录');
+            } catch (error) {
+                console.error('登出失败:', error);
+                // 即使后端失败，也强制前端登出
+                this.currentUser = null;
+                this.api.setToken(null);
+                this.updateUI();
+                alert('登出时发生错误，已在本地强制登出');
+            }
         }
     }
 
-    // 保存到本地存储
-    saveToStorage() {
-        localStorage.setItem('connecthub_user', JSON.stringify(this.currentUser));
-        localStorage.setItem('connecthub_posts', JSON.stringify(this.posts));
-        localStorage.setItem('connecthub_comments', JSON.stringify(this.comments));
-    }
-
-    // 从本地存储加载
-    loadFromStorage() {
-        const savedUser = localStorage.getItem('connecthub_user');
-        const savedPosts = localStorage.getItem('connecthub_posts');
-        const savedComments = localStorage.getItem('connecthub_comments');
-        
-        if (savedUser) {
-            this.currentUser = JSON.parse(savedUser);
-        }
-        
-        if (savedComments) {
-            this.comments = JSON.parse(savedComments);
-        }
-        
-        if (savedPosts) {
-            this.posts = JSON.parse(savedPosts);
-        } else {
-            // 添加一些示例帖子
-            this.posts = [
-                {
-                    id: 1,
-                    title: '欢迎来到 ConnectHub！',
-                    category: '公告',
-                    content: '这是我们论坛的第一个帖子。欢迎大家在这里分享想法、交流心得！',
-                    author: 'Admin',
-                    time: new Date(Date.now() - 86400000),
-                    replies: 5,
-                    likes: 12
-                },
-                {
-                    id: 2,
-                    title: '如何使用这个论坛？',
-                    category: '问答',
-                    content: '新手指南：点击右上角注册账号，然后就可以发帖和回复了。',
-                    author: 'Helper',
-                    time: new Date(Date.now() - 43200000),
-                    replies: 3,
-                    likes: 8
-                }
-            ];
+    // 从API加载帖子
+    async loadPosts() {
+        try {
+            const response = await this.api.getPosts();
+            this.posts = response.data.posts.map(post => ({
+                id: post._id,
+                title: post.title,
+                category: post.category,
+                content: post.content,
+                author: post.author.username,
+                time: post.createdAt,
+                replies: post.comments.length,
+                likes: post.likes.length,
+                likedBy: post.likes
+            }));
+            this.renderPosts();
+        } catch (error) {
+            console.error('加载帖子失败:', error);
+            const postsList = document.getElementById('postsList');
+            postsList.innerHTML = '<p style="color: red;">加载帖子失败，请刷新页面重试。</p>';
         }
     }
 }

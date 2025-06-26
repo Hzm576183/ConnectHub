@@ -20,10 +20,21 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS配置
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+const corsOptions = {
+  credentials: true,
+  origin: (origin, callback) => {
+    // 在开发环境中, 允许来自任何源的请求
+    // 注意: 在生产环境中应该设置更严格的白名单
+    // 例如: const whitelist = ['http://yourdomain.com'];
+    // if (whitelist.indexOf(origin) !== -1 || !origin) {
+    //   callback(null, true);
+    // } else {
+    //   callback(new Error('Not allowed by CORS'));
+    // }
+    callback(null, true);
+  }
+};
+app.use(cors(corsOptions));
 
 // 日志中间件
 app.use(morgan('combined'));
@@ -33,17 +44,23 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // 数据库连接
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/connecthub', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('✅ MongoDB 连接成功');
-})
-.catch((error) => {
-  console.error('❌ MongoDB 连接失败:', error);
-  process.exit(1);
-});
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/connecthub', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('✅ MongoDB 连接成功');
+  } catch (error) {
+    console.error('❌ MongoDB 连接失败:', error);
+    console.log('💡 提示: 请确保 MongoDB 服务正在运行');
+    console.log('   macOS: brew services start mongodb-community');
+    console.log('   或手动启动: mongod');
+    process.exit(1);
+  }
+};
+
+connectDB();
 
 // 路由
 app.use('/api/auth', require('./routes/auth'));
@@ -80,7 +97,7 @@ app.use((error, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`🚀 服务器运行在端口 ${PORT}`);
