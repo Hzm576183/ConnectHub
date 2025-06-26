@@ -61,6 +61,7 @@ const getPosts = async (req, res) => {
     
     // 查询帖子
     const posts = await Post.find(query)
+      .populate('comments')
       .sort(sort)
       .skip(skip)
       .limit(limitNum)

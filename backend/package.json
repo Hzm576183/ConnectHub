@@ -8,7 +8,12 @@
     "dev": "nodemon server.js",
     "test": "jest"
   },
-  "keywords": ["forum", "api", "express", "mongodb"],
+  "keywords": [
+    "forum",
+    "api",
+    "express",
+    "mongodb"
+  ],
   "author": "ConnectHub Team",
   "license": "MIT",
   "dependencies": {
