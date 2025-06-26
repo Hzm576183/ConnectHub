@@ -28,32 +28,76 @@
 
     <!-- 主内容区 -->
     <main class="main-content">
-        <!-- 欢迎区域 -->
-        <section class="hero-section">
-            <div class="container">
-                <h1>欢迎来到 ConnectHub</h1>
-                <p>连接思想，分享智慧，建立社区</p>
-                <button class="btn btn-large btn-primary" id="startDiscussionBtn">
-                    <i class="fas fa-plus"></i> 开始讨论
-                </button>
-            </div>
-        </section>
+        <!-- 首页内容 -->
+        <div id="homePage">
+            <!-- 欢迎区域 -->
+            <section class="hero-section">
+                <div class="container">
+                    <h1>欢迎来到 ConnectHub</h1>
+                    <p>连接思想，分享智慧，建立社区</p>
+                    <button class="btn btn-large btn-primary" id="startDiscussionBtn">
+                        <i class="fas fa-plus"></i> 开始讨论
+                    </button>
+                </div>
+            </section>
 
-        <!-- 帖子列表 -->
-        <section class="posts-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2>最新讨论</h2>
-                    <div class="sort-options">
-                        <button class="sort-btn active" data-sort="latest">最新</button>
-                        <button class="sort-btn" data-sort="popular">热门</button>
+            <!-- 帖子列表 -->
+            <section class="posts-section">
+                <div class="container">
+                    <div class="section-header">
+                        <h2>最新讨论</h2>
+                        <div class="sort-options">
+                            <button class="sort-btn active" data-sort="latest">最新</button>
+                            <button class="sort-btn" data-sort="popular">热门</button>
+                        </div>
+                    </div>
+                    <div class="posts-list" id="postsList">
+                        <!-- 帖子将通过JavaScript动态加载 -->
                     </div>
                 </div>
-                <div class="posts-list" id="postsList">
-                    <!-- 帖子将通过JavaScript动态加载 -->
+            </section>
+        </div>
+
+        <!-- 帖子详情页 -->
+        <div id="postDetailPage" class="hidden">
+            <div class="container">
+                <!-- 返回按钮 -->
+                <div class="back-nav">
+                    <button class="btn btn-outline" id="backToHome">
+                        <i class="fas fa-arrow-left"></i> 返回首页
+                    </button>
                 </div>
+
+                <!-- 帖子详情 -->
+                <article class="post-detail" id="postDetail">
+                    <!-- 动态加载帖子内容 -->
+                </article>
+
+                <!-- 评论区 -->
+                <section class="comments-section">
+                    <div class="comments-header">
+                        <h3>评论 (<span id="commentsCount">0</span>)</h3>
+                        <button class="btn btn-primary" id="addCommentBtn">
+                            <i class="fas fa-comment"></i> 添加评论
+                        </button>
+                    </div>
+                    
+                    <!-- 评论表单 -->
+                    <div class="comment-form hidden" id="commentForm">
+                        <textarea placeholder="写下你的评论..." id="commentText" rows="4"></textarea>
+                        <div class="form-actions">
+                            <button class="btn btn-outline" id="cancelComment">取消</button>
+                            <button class="btn btn-primary" id="submitComment">发布评论</button>
+                        </div>
+                    </div>
+
+                    <!-- 评论列表 -->
+                    <div class="comments-list" id="commentsList">
+                        <!-- 动态加载评论 -->
+                    </div>
+                </section>
             </div>
-        </section>
+        </div>
     </main>
 
     <!-- 模态框 -->
