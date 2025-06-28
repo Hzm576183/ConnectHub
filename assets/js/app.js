@@ -294,7 +294,7 @@ class ConnectHub {
         postsList.innerHTML = this.posts.map(post => `
             <div class="post-item" style="border: 1px solid #e5e5e5; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; background: #fafafa;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-                    <h3 style="margin: 0; color: #2563eb; cursor: pointer;" onclick="connectHub.showPostDetail(${post.id})">${post.title}</h3>
+                    <h3 style="margin: 0; color: #2563eb; cursor: pointer;" onclick="connectHub.showPostDetail('${post.id}')">${post.title}</h3>
                     <span style="background: #e5e5e5; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">${post.category}</span>
                 </div>
                 <p style="color: #666; margin-bottom: 1rem; line-height: 1.4;">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
@@ -346,7 +346,7 @@ class ConnectHub {
                 ${post.content.replace(/\n/g, '<br>')}
             </div>
             <div class="post-actions">
-                <button class="like-btn ${post.likedBy && post.likedBy.includes(this.currentUser?.username) ? 'liked' : ''}" onclick="connectHub.toggleLike(${post.id})">
+                <button class="like-btn ${post.likedBy && post.likedBy.includes(this.currentUser?.username) ? 'liked' : ''}" onclick="connectHub.toggleLike('${post.id}')">
                     <i class="fas fa-thumbs-up"></i>
                     <span>${post.likes}</span>
                 </button>
@@ -564,7 +564,7 @@ class ConnectHub {
         
         searchResults.innerHTML = this.searchResults.map(post => `
             <div class="search-result-item">
-                <a href="#" class="search-result-title" onclick="connectHub.showPostDetail(${post.id}); return false;">
+                <a href="#" class="search-result-title" onclick="connectHub.showPostDetail('${post.id}'); return false;">
                     ${post.highlightedTitle}
                 </a>
                 <div class="search-result-meta">
@@ -717,6 +717,15 @@ class ConnectHub {
 }
 
 // 初始化应用
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
     window.connectHub = new ConnectHub();
-});
+    console.log('ConnectHub应用已初始化');
+}
+
+// 确保在DOM加载完成后初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    // DOM已经加载完成
+    initApp();
+}
