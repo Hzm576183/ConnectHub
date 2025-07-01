@@ -302,7 +302,7 @@ class ConnectHub {
                     <span>by ${post.author}</span>
                     <div style="display: flex; gap: 1rem;">
                         <span><i class="fas fa-thumbs-up"></i> ${post.likes}</span>
-                        <span><i class="fas fa-comment"></i> ${this.getCommentsCount(post.id)}</span>
+                        <span><i class="fas fa-comment"></i> ${post.replies}</span>
                         <span>${this.formatTime(post.time)}</span>
                     </div>
                 </div>
@@ -323,7 +323,9 @@ class ConnectHub {
         
         // 渲染帖子详情
         this.renderPostDetail(post);
-        this.renderComments(postId);
+        
+        // 加载评论数据
+        this.loadComments(postId);
         
         // 滚动到顶部
         window.scrollTo(0, 0);
@@ -414,44 +416,55 @@ class ConnectHub {
     }
 
     // 处理添加评论
-    handleAddComment() {
-        const commentText = document.getElementById('commentText').value.trim();
-        if (!commentText) return;
-        
-        if (!this.comments[this.currentPostId]) {
-            this.comments[this.currentPostId] = [];
+    async handleAddComment() {
+        try {
+            const commentText = document.getElementById('commentText').value.trim();
+            if (!commentText) return;
+            
+            if (!this.currentUser) {
+                alert('请先登录');
+                this.showAuthModal('login');
+                return;
+            }
+            
+            // 调用API创建评论
+            const response = await this.api.createComment(this.currentPostId, {
+                content: commentText
+            });
+            
+            // 重新加载评论列表
+            await this.loadComments(this.currentPostId);
+            this.hideCommentForm();
+            
+            console.log('评论创建成功:', response.data.comment);
+            
+        } catch (error) {
+            console.error('创建评论失败:', error);
+            alert(error.message || '创建评论失败，请稍后重试');
         }
-        
-        const newComment = {
-            id: Date.now(),
-            postId: this.currentPostId,
-            author: this.currentUser.username,
-            content: commentText,
-            time: new Date()
-        };
-        
-        this.comments[this.currentPostId].push(newComment);
-        this.saveToStorage();
-        this.renderComments(this.currentPostId);
-        this.hideCommentForm();
-        
-        // 更新帖子回复数
-        const post = this.posts.find(p => p.id === this.currentPostId);
-        if (post) {
-            post.replies = this.getCommentsCount(this.currentPostId);
-            this.saveToStorage();
+    }
+
+    // 从API加载评论
+    async loadComments(postId) {
+        try {
+            const response = await this.api.getComments(postId);
+            this.renderComments(response.data.comments);
+            
+            // 更新评论数量
+            const commentsCount = document.getElementById('commentsCount');
+            commentsCount.textContent = response.data.pagination.total;
+            
+        } catch (error) {
+            console.error('加载评论失败:', error);
+            this.renderComments([]);
         }
     }
 
     // 渲染评论
-    renderComments(postId) {
+    renderComments(comments) {
         const commentsList = document.getElementById('commentsList');
-        const commentsCount = document.getElementById('commentsCount');
-        const comments = this.comments[postId] || [];
         
-        commentsCount.textContent = comments.length;
-        
-        if (comments.length === 0) {
+        if (!comments || comments.length === 0) {
             commentsList.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">暂无评论，快来发表第一个评论吧！</p>';
             return;
         }
@@ -459,17 +472,96 @@ class ConnectHub {
         commentsList.innerHTML = comments.map(comment => `
             <div class="comment-item">
                 <div class="comment-header">
-                    <span class="comment-author">${comment.author}</span>
-                    <span class="comment-time">${this.formatTime(comment.time)}</span>
+                    <span class="comment-author">${comment.author.username}</span>
+                    <span class="comment-time">${this.formatTime(comment.createdAt)}</span>
                 </div>
                 <div class="comment-content">${comment.content.replace(/\n/g, '<br>')}</div>
+                <div class="comment-actions">
+                    <button class="comment-like-btn ${comment.isLikedByUser ? 'liked' : ''}" 
+                            onclick="connectHub.toggleCommentLike('${comment._id}')">
+                        <i class="fas fa-heart"></i>
+                        <span>${comment.likesCount}</span>
+                    </button>
+                    ${comment.level < 3 ? `<button class="comment-reply-btn" onclick="connectHub.showReplyForm('${comment._id}')">回复</button>` : ''}
+                </div>
+                ${comment.replies && comment.replies.length > 0 ? `
+                    <div class="comment-replies">
+                        ${comment.replies.map(reply => `
+                            <div class="comment-item reply">
+                                <div class="comment-header">
+                                    <span class="comment-author">${reply.author.username}</span>
+                                    <span class="comment-time">${this.formatTime(reply.createdAt)}</span>
+                                </div>
+                                <div class="comment-content">${reply.content.replace(/\n/g, '<br>')}</div>
+                                <div class="comment-actions">
+                                    <button class="comment-like-btn ${reply.isLikedByUser ? 'liked' : ''}" 
+                                            onclick="connectHub.toggleCommentLike('${reply._id}')">
+                                        <i class="fas fa-heart"></i>
+                                        <span>${reply.likesCount}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
             </div>
         `).join('');
     }
 
-    // 获取评论数量
-    getCommentsCount(postId) {
-        return this.comments[postId] ? this.comments[postId].length : 0;
+    // 切换评论点赞
+    async toggleCommentLike(commentId) {
+        try {
+            if (!this.currentUser) {
+                alert('请先登录');
+                this.showAuthModal('login');
+                return;
+            }
+            
+            const response = await this.api.toggleCommentLike(commentId);
+            
+            // 重新加载评论以更新点赞状态
+            await this.loadComments(this.currentPostId);
+            
+            console.log('评论点赞状态已更新:', response.data);
+            
+        } catch (error) {
+            console.error('切换评论点赞失败:', error);
+            alert(error.message || '操作失败，请稍后重试');
+        }
+    }
+
+    // 显示回复表单
+    showReplyForm(parentCommentId) {
+        if (!this.currentUser) {
+            alert('请先登录');
+            this.showAuthModal('login');
+            return;
+        }
+        
+        // 实现回复功能 - 可以在此添加回复表单显示逻辑
+        const replyContent = prompt('请输入回复内容:');
+        if (replyContent && replyContent.trim()) {
+            this.handleReply(parentCommentId, replyContent.trim());
+        }
+    }
+
+    // 处理回复
+    async handleReply(parentCommentId, content) {
+        try {
+            const response = await this.api.createComment(this.currentPostId, {
+                content: content,
+                parentComment: parentCommentId
+            });
+            
+            // 重新加载评论列表
+            await this.loadComments(this.currentPostId);
+            
+            console.log('回复创建成功:', response.data.comment);
+            
+        } catch (error) {
+            console.error('创建回复失败:', error);
+            alert(error.message || '创建回复失败，请稍后重试');
+        }
     }
 
     // 处理搜索
@@ -703,9 +795,9 @@ class ConnectHub {
                 content: post.content,
                 author: post.author.username,
                 time: post.createdAt,
-                replies: post.comments.length,
-                likes: post.likes.length,
-                likedBy: post.likes
+                replies: post.commentsCount || 0,
+                likes: post.likesCount || 0,
+                likedBy: post.likes || []
             }));
             this.renderPosts();
         } catch (error) {

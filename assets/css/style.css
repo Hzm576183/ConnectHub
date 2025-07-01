@@ -398,6 +398,51 @@ body {
 .comment-content {
     color: #374151;
     line-height: 1.6;
+    margin-bottom: 0.5rem;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.comment-like-btn, .comment-reply-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    border: none;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.comment-like-btn:hover, .comment-reply-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.comment-like-btn.liked {
+    color: #dc2626;
+}
+
+.comment-like-btn.liked:hover {
+    color: #b91c1c;
+}
+
+.comment-replies {
+    margin-top: 1rem;
+    padding-left: 2rem;
+    border-left: 2px solid #e5e7eb;
+}
+
+.comment-item.reply {
+    padding: 0.8rem 0;
+    border-bottom: 1px solid #f9fafb;
 }
 
 /* 搜索结果页面 */
