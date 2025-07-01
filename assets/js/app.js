@@ -654,9 +654,14 @@ class ConnectHub {
     }
 
     // 执行搜索
-    async performSearch(query) {
+    async performSearch(query, searchParams = null) {
         try {
-            const response = await this.api.searchPosts({ q: query });
+            // 如果没有提供搜索参数，使用默认参数
+            const params = searchParams || { q: query };
+            
+            console.log('实际API调用参数:', params);
+            const response = await this.api.searchPosts(params);
+            console.log('API返回的帖子数量:', response.data.posts.length);
             const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
             
             this.searchResults = response.data.posts.map(post => ({
@@ -675,8 +680,10 @@ class ConnectHub {
                 highlightedContent: this.highlightText(post.content.substring(0, 200), searchTerms)
             }));
             
-            // 按相关性排序
-            this.searchResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+            // 如果没有指定排序或者是相关性排序，按相关性排序
+            if (!searchParams || !searchParams.sortBy || searchParams.sortBy === 'relevance') {
+                this.searchResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+            }
             
         } catch (error) {
             console.error('搜索API调用失败:', error);
@@ -758,33 +765,58 @@ class ConnectHub {
     }
 
     // 应用搜索过滤器
-    applySearchFilters() {
-        if (this.searchResults.length === 0) return;
+    async applySearchFilters() {
+        if (!this.currentSearchQuery) return;
         
-        const categoryFilter = document.getElementById('categoryFilter').value;
-        const sortFilter = document.getElementById('searchSortFilter').value;
-        const authorFilter = document.getElementById('authorFilter').value.trim().toLowerCase();
-        
-        // 应用过滤器
-        let filteredResults = [...this.searchResults];
-        
-        if (categoryFilter) {
-            filteredResults = filteredResults.filter(post => post.category === categoryFilter);
+        try {
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const sortFilter = document.getElementById('searchSortFilter').value;
+            const authorFilter = document.getElementById('authorFilter').value.trim();
+            
+            // 构建搜索参数
+            const searchParams = { q: this.currentSearchQuery };
+            
+            if (categoryFilter) {
+                searchParams.category = categoryFilter;
+            }
+            
+            if (authorFilter) {
+                searchParams.author = authorFilter;
+            }
+            
+            // 设置排序参数
+            switch (sortFilter) {
+                case 'latest':
+                    searchParams.sortBy = 'createdAt';
+                    searchParams.sortOrder = 'desc';
+                    break;
+                case 'popular':
+                    searchParams.sortBy = 'likesCount';
+                    searchParams.sortOrder = 'desc';
+                    break;
+                case 'relevance':
+                default:
+                    searchParams.sortBy = 'createdAt';
+                    searchParams.sortOrder = 'desc';
+                    break;
+            }
+            
+            // 调试信息
+            console.log('搜索参数:', searchParams);
+            console.log('当前搜索词:', this.currentSearchQuery);
+            
+            // 重新搜索
+            await this.performSearch(this.currentSearchQuery, searchParams);
+            this.renderSearchResults();
+            
+            // 更新结果计数
+            document.getElementById('searchResultCount').textContent = `找到 ${this.searchResults.length} 个结果`;
+            console.log('搜索结果数量:', this.searchResults.length);
+            
+        } catch (error) {
+            console.error('应用搜索过滤器失败:', error);
+            alert('筛选失败，请稍后重试');
         }
-        
-        if (authorFilter) {
-            filteredResults = filteredResults.filter(post => 
-                post.author.toLowerCase().includes(authorFilter)
-            );
-        }
-        
-        // 应用排序
-        this.sortSearchResults(sortFilter, filteredResults);
-        
-        // 更新显示
-        this.searchResults = filteredResults;
-        this.renderSearchResults();
-        document.getElementById('searchResultCount').textContent = `找到 ${filteredResults.length} 个结果`;
     }
 
     // 排序搜索结果

@@ -128,7 +128,7 @@ postSchema.methods.isLikedBy = function(userId) {
 };
 
 // 静态方法：搜索帖子
-postSchema.statics.searchPosts = function(query, options = {}) {
+postSchema.statics.searchPosts = async function(query, options = {}) {
   const {
     category,
     author,
@@ -140,9 +140,25 @@ postSchema.statics.searchPosts = function(query, options = {}) {
   
   const searchQuery = { isActive: true };
   
-  // 全文搜索
+  // 改进的搜索逻辑 - 支持标题和内容的模糊匹配
   if (query) {
-    searchQuery.$text = { $search: query };
+    const searchTerms = query.trim().split(/\s+/); // 按空格分割搜索词
+    const regexQueries = searchTerms.map(term => ({
+      $or: [
+        { title: { $regex: term, $options: 'i' } },
+        { content: { $regex: term, $options: 'i' } }
+      ]
+    }));
+    
+    // 所有搜索词都要匹配（AND逻辑）
+    if (regexQueries.length > 1) {
+      searchQuery.$and = regexQueries;
+    } else {
+      searchQuery.$or = [
+        { title: { $regex: query, $options: 'i' } },
+        { content: { $regex: query, $options: 'i' } }
+      ];
+    }
   }
   
   // 分类筛选
@@ -150,9 +166,25 @@ postSchema.statics.searchPosts = function(query, options = {}) {
     searchQuery.category = category;
   }
   
-  // 作者筛选
+  // 作者筛选 - 支持用户名和用户ID
   if (author) {
-    searchQuery.author = author;
+    if (mongoose.Types.ObjectId.isValid(author)) {
+      // 按ID搜索
+      searchQuery.author = author;
+    } else {
+      // 按用户名搜索，先查找用户
+      const User = mongoose.model('User');
+      const users = await User.find({ 
+        username: { $regex: author, $options: 'i' } 
+      }).select('_id');
+      
+      if (users.length > 0) {
+        searchQuery.author = { $in: users.map(user => user._id) };
+      } else {
+        // 如果没找到用户，返回空结果
+        searchQuery.author = new mongoose.Types.ObjectId();
+      }
+    }
   }
   
   const sort = {};

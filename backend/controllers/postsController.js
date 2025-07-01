@@ -1,4 +1,5 @@
 const { validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const User = require('../models/User');
 
@@ -391,12 +392,51 @@ const searchPosts = async (req, res) => {
     };
     
     const posts = await Post.searchPosts(query, options);
-    const total = await Post.countDocuments({
-      ...(query && { $text: { $search: query } }),
-      ...(category && { category }),
-      ...(author && { author }),
-      isActive: true
-    });
+    
+    // 构建与搜索相同的查询条件来计算总数
+    const countQuery = { isActive: true };
+    
+    if (query) {
+      const searchTerms = query.trim().split(/\s+/);
+      const regexQueries = searchTerms.map(term => ({
+        $or: [
+          { title: { $regex: term, $options: 'i' } },
+          { content: { $regex: term, $options: 'i' } }
+        ]
+      }));
+      
+      if (regexQueries.length > 1) {
+        countQuery.$and = regexQueries;
+      } else {
+        countQuery.$or = [
+          { title: { $regex: query, $options: 'i' } },
+          { content: { $regex: query, $options: 'i' } }
+        ];
+      }
+    }
+    
+    if (category) {
+      countQuery.category = category;
+    }
+    
+    if (author) {
+      if (mongoose.Types.ObjectId.isValid(author)) {
+        countQuery.author = author;
+      } else {
+        const User = require('../models/User');
+        const users = await User.find({ 
+          username: { $regex: author, $options: 'i' } 
+        }).select('_id');
+        
+        if (users.length > 0) {
+          countQuery.author = { $in: users.map(user => user._id) };
+        } else {
+          countQuery.author = new mongoose.Types.ObjectId();
+        }
+      }
+    }
+    
+    const total = await Post.countDocuments(countQuery);
     
     const pages = Math.ceil(total / options.limit);
     
