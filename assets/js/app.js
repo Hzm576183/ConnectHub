@@ -40,6 +40,9 @@ class ConnectHub {
         document.getElementById('loginBtn').addEventListener('click', () => this.showAuthModal('login'));
         document.getElementById('registerBtn').addEventListener('click', () => this.showAuthModal('register'));
         
+        // 测试登录按钮 - 开发测试用
+        document.getElementById('testLoginBtn').addEventListener('click', () => this.handleTestLogin());
+        
         // 发帖按钮
         document.getElementById('startDiscussionBtn').addEventListener('click', () => this.showPostModal());
         
@@ -176,6 +179,48 @@ class ConnectHub {
         } catch (error) {
             console.error('登录失败:', error);
             alert(error.message || '登录失败，请检查用户名和密码');
+        }
+    }
+
+    // 测试登录方法 - 开发测试用
+    async handleTestLogin() {
+        try {
+            // 使用预设的测试账号
+            const testUser = {
+                username: 'testuser',
+                password: 'test123'
+            };
+            
+            console.log('尝试测试登录...');
+            const response = await this.api.login(testUser);
+            this.currentUser = response.data.user;
+            this.updateUI();
+            
+            alert(`测试登录成功！欢迎 ${this.currentUser.username}！`);
+            console.log('测试登录成功:', this.currentUser);
+            
+        } catch (error) {
+            console.error('测试登录失败:', error);
+            // 如果测试账号不存在，尝试创建
+            if (error.message.includes('用户不存在') || error.message.includes('用户名或密码错误')) {
+                try {
+                    console.log('测试账号不存在，尝试创建...');
+                    const registerResponse = await this.api.register({
+                        username: 'testuser',
+                        email: 'test@example.com',
+                        password: 'test123'
+                    });
+                    this.currentUser = registerResponse.data.user;
+                    this.updateUI();
+                    alert(`测试账号创建成功！欢迎 ${this.currentUser.username}！`);
+                    console.log('测试账号创建成功:', this.currentUser);
+                } catch (registerError) {
+                    console.error('创建测试账号失败:', registerError);
+                    alert('测试登录失败: ' + (registerError.message || '请检查服务器连接'));
+                }
+            } else {
+                alert('测试登录失败: ' + (error.message || '请检查服务器连接'));
+            }
         }
     }
 
@@ -861,19 +906,28 @@ class ConnectHub {
         
         const newLoginBtn = document.getElementById('loginBtn');
         const newRegisterBtn = document.getElementById('registerBtn');
+        const newTestLoginBtn = document.getElementById('testLoginBtn');
 
         if (this.currentUser) {
             newLoginBtn.textContent = this.currentUser.username;
             newRegisterBtn.style.display = 'none';
+            // 隐藏测试登录按钮，因为已经登录了
+            if (newTestLoginBtn) newTestLoginBtn.style.display = 'none';
             
             newLoginBtn.addEventListener('click', () => this.logout());
         } else {
             newLoginBtn.textContent = '登录';
             newRegisterBtn.textContent = '注册';
             newRegisterBtn.style.display = 'inline-block';
+            // 显示测试登录按钮
+            if (newTestLoginBtn) newTestLoginBtn.style.display = 'inline-block';
             
             newLoginBtn.addEventListener('click', () => this.showAuthModal('login'));
             newRegisterBtn.addEventListener('click', () => this.showAuthModal('register'));
+            // 重新绑定测试登录按钮事件
+            if (newTestLoginBtn) {
+                newTestLoginBtn.addEventListener('click', () => this.handleTestLogin());
+            }
         }
     }
 
