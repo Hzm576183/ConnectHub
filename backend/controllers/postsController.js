@@ -268,9 +268,22 @@ const deletePost = async (req, res) => {
       });
     }
     
-    // 检查权限
-    if (post.author.toString() !== req.user._id.toString() && 
-        req.user.role !== 'admin') {
+    // 调试信息
+    console.log('后端删除权限检查:');
+    console.log('帖子作者:', post.author);
+    console.log('帖子作者ID:', post.author._id ? post.author._id.toString() : post.author.toString());
+    console.log('当前用户ID:', req.user._id.toString());
+    console.log('用户角色:', req.user.role);
+    
+    // 检查权限 - 处理populate的author对象
+    const authorId = post.author._id ? post.author._id.toString() : post.author.toString();
+    const isAuthor = authorId === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    
+    console.log('权限检查结果:', isAuthor);
+    console.log('最终权限判断:', { isAuthor, isAdmin });
+    
+    if (!isAuthor && !isAdmin) {
       return res.status(403).json({
         status: 'error',
         message: '无权删除此帖子'

@@ -356,6 +356,12 @@ class ConnectHub {
                     <i class="fas fa-comment"></i>
                     回复
                 </button>
+                ${this.currentUser && (this.currentUser._id === post.authorId || this.currentUser.username === post.author) ? `
+                    <button class="btn btn-danger" onclick="connectHub.deletePost('${post.id}')" style="margin-left: auto;">
+                        <i class="fas fa-trash"></i>
+                        删除帖子
+                    </button>
+                ` : ''}
             </div>
         `;
     }
@@ -395,6 +401,70 @@ class ConnectHub {
         
         this.saveToStorage();
         this.renderPostDetail(post);
+    }
+
+    // 删除帖子
+    async deletePost(postId) {
+        try {
+            if (!this.currentUser) {
+                alert('请先登录');
+                this.showAuthModal('login');
+                return;
+            }
+            
+            const post = this.posts.find(p => p.id === postId);
+            if (!post) {
+                alert('帖子不存在');
+                return;
+            }
+            
+            // 调试信息
+            console.log('当前用户ID:', this.currentUser._id);
+            console.log('当前用户名:', this.currentUser.username);
+            console.log('帖子作者ID:', post.authorId);
+            console.log('帖子作者名:', post.author);
+            console.log('ID权限检查:', post.authorId === this.currentUser._id);
+            console.log('用户名权限检查:', post.author === this.currentUser.username);
+            
+            // 检查权限：只有作者可以删除（同时检查用户ID和用户名）
+            const isAuthor = post.authorId === this.currentUser._id || post.author === this.currentUser.username;
+            if (!isAuthor) {
+                alert(`只有帖子作者可以删除帖子。当前用户: ${this.currentUser.username}, 帖子作者: ${post.author}`);
+                return;
+            }
+            
+            // 确认删除
+            if (!confirm('确定要删除这个帖子吗？删除后无法恢复。')) {
+                return;
+            }
+            
+            // 先测试token是否有效
+            console.log('测试API token有效性...');
+            try {
+                const profileResponse = await this.api.getProfile();
+                console.log('Token有效，用户信息:', profileResponse.data.user);
+            } catch (tokenError) {
+                console.error('Token验证失败:', tokenError);
+                alert('登录已过期，请重新登录');
+                this.showAuthModal('login');
+                return;
+            }
+            
+            // 调用API删除帖子
+            console.log('开始调用删除API...');
+            await this.api.deletePost(postId);
+            
+            // 删除成功后返回首页并重新加载帖子列表
+            this.showHomePage();
+            await this.loadPosts();
+            
+            alert('帖子删除成功');
+            console.log('帖子删除成功:', postId);
+            
+        } catch (error) {
+            console.error('删除帖子失败:', error);
+            alert(error.message || '删除帖子失败，请稍后重试');
+        }
     }
 
     // 显示评论表单
@@ -565,43 +635,54 @@ class ConnectHub {
     }
 
     // 处理搜索
-    handleSearch() {
-        const searchQuery = document.getElementById('searchInput').value.trim();
-        if (!searchQuery) {
-            alert('请输入搜索关键词');
-            return;
+    async handleSearch() {
+        try {
+            const searchQuery = document.getElementById('searchInput').value.trim();
+            if (!searchQuery) {
+                alert('请输入搜索关键词');
+                return;
+            }
+            
+            this.currentSearchQuery = searchQuery;
+            await this.performSearch(searchQuery);
+            this.showSearchResults();
+            
+        } catch (error) {
+            console.error('搜索失败:', error);
+            alert('搜索失败，请稍后重试');
         }
-        
-        this.currentSearchQuery = searchQuery;
-        this.performSearch(searchQuery);
-        this.showSearchResults();
     }
 
     // 执行搜索
-    performSearch(query) {
-        const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
-        
-        this.searchResults = this.posts.filter(post => {
-            const searchContent = `${post.title} ${post.content} ${post.author}`.toLowerCase();
-            return searchTerms.some(term => searchContent.includes(term));
-        }).map(post => {
-            // 计算相关性分数
-            const titleMatches = this.countMatches(post.title.toLowerCase(), searchTerms);
-            const contentMatches = this.countMatches(post.content.toLowerCase(), searchTerms);
-            const authorMatches = this.countMatches(post.author.toLowerCase(), searchTerms);
+    async performSearch(query) {
+        try {
+            const response = await this.api.searchPosts({ q: query });
+            const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
             
-            const relevanceScore = titleMatches * 3 + contentMatches * 2 + authorMatches * 1;
-            
-            return {
-                ...post,
-                relevanceScore,
+            this.searchResults = response.data.posts.map(post => ({
+                id: post._id,
+                title: post.title,
+                category: post.category,
+                content: post.content,
+                author: post.author.username,
+                authorId: post.author._id,
+                time: post.createdAt,
+                replies: post.commentsCount || 0,
+                likes: post.likesCount || 0,
+                likedBy: post.likes || [],
+                relevanceScore: post.relevanceScore || 0,
                 highlightedTitle: this.highlightText(post.title, searchTerms),
                 highlightedContent: this.highlightText(post.content.substring(0, 200), searchTerms)
-            };
-        });
-        
-        // 默认按相关性排序
-        this.sortSearchResults('relevance');
+            }));
+            
+            // 按相关性排序
+            this.searchResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+            
+        } catch (error) {
+            console.error('搜索API调用失败:', error);
+            this.searchResults = [];
+            throw error;
+        }
     }
 
     // 计算匹配次数
@@ -669,7 +750,7 @@ class ConnectHub {
                 </div>
                 <div class="search-result-stats">
                     <span><i class="fas fa-thumbs-up"></i> ${post.likes} 点赞</span>
-                    <span><i class="fas fa-comment"></i> ${this.getCommentsCount(post.id)} 评论</span>
+                    <span><i class="fas fa-comment"></i> ${post.replies} 评论</span>
                     <span><i class="fas fa-eye"></i> 相关性: ${post.relevanceScore}</span>
                 </div>
             </div>
@@ -794,6 +875,7 @@ class ConnectHub {
                 category: post.category,
                 content: post.content,
                 author: post.author.username,
+                authorId: post.author._id,
                 time: post.createdAt,
                 replies: post.commentsCount || 0,
                 likes: post.likesCount || 0,

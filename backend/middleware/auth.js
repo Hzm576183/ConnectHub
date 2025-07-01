@@ -31,6 +31,7 @@ const authenticate = async (req, res, next) => {
     }
     
     req.user = user;
+    console.log('认证成功 - 用户:', user.username, 'ID:', user._id.toString());
     next();
   } catch (error) {
     console.error('认证失败:', error);
